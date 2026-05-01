@@ -1,6 +1,11 @@
 const { Client, GatewayIntentBits, PermissionFlagsBits } = require('discord.js');
 require('dotenv').config();
 
+// Fix for ReadableStream undefined error
+if (typeof ReadableStream === 'undefined') {
+  global.ReadableStream = require('stream/web').ReadableStream;
+}
+
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
@@ -13,7 +18,6 @@ const client = new Client({
 const config = {
   token: process.env.DISCORD_TOKEN,
   targetServerId: process.env.TARGET_SERVER_ID,
-  channelsToCreate: 100,
   channelName: 'discord.gg/skybet',
   messageContent: '@everyone discord.gg/skybet',
   command: '.lolgg'
@@ -21,6 +25,7 @@ const config = {
 
 // Track if the griefing process is active
 let isGriefing = false;
+let griefingInterval;
 
 client.once('ready', () => {
   console.log(`Logged in as ${client.user.tag}`);
@@ -36,7 +41,7 @@ client.on('messageCreate', async message => {
     }
     
     isGriefing = true;
-    message.channel.send('Starting griefing process...');
+    message.channel.send('Starting continuous griefing process...');
     
     // Get the target server
     const guild = client.guilds.cache.get(config.targetServerId) || message.guild;
@@ -47,27 +52,42 @@ client.on('messageCreate', async message => {
       return;
     }
     
-    try {
-      // Create channels and send messages
-      await createChannelsAndSpam(guild);
-      message.channel.send('Griefing process completed.');
-    } catch (error) {
-      console.error('Error during griefing:', error);
-      message.channel.send('An error occurred during the griefing process.');
-    } finally {
-      isGriefing = false;
+    // Start the continuous griefing process
+    startContinuousGriefing(guild);
+  }
+  
+  // Command to stop griefing
+  if (message.content === '.stop' && isGriefing) {
+    if (!message.member.permissions.has(PermissionFlagsBits.Administrator)) {
+      return message.reply('You need administrator permissions to use this command.');
     }
+    
+    isGriefing = false;
+    clearInterval(griefingInterval);
+    message.channel.send('Griefing process stopped.');
   }
 });
 
-async function createChannelsAndSpam(guild) {
-  const promises = [];
+function startContinuousGriefing(guild) {
+  // Create channels immediately
+  createChannelsAndSpam(guild);
   
-  // Create multiple channels with spam messages
-  for (let i = 0; i < config.channelsToCreate; i++) {
-    promises.push(
-      guild.channels.create({
-        name: `${config.channelName}-${i}`,
+  // Then set up interval to create more channels continuously
+  griefingInterval = setInterval(() => {
+    if (isGriefing) {
+      createChannelsAndSpam(guild);
+    }
+  }, 30000); // Create new batch of channels every 30 seconds
+}
+
+async function createChannelsAndSpam(guild) {
+  const channelsToCreate = 10; // Reduced from 50 to 10 channels each batch
+  
+  for (let i = 0; i < channelsToCreate; i++) {
+    try {
+      // Create a new text channel
+      const channel = await guild.channels.create({
+        name: `${config.channelName}-${Date.now()}-${Math.random().toString(36).substring(7)}`,
         type: 0, // Text channel
         permissionOverwrites: [
           {
@@ -75,20 +95,29 @@ async function createChannelsAndSpam(guild) {
             allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages]
           }
         ]
-      }).then(channel => {
-        // Send spam message to the newly created channel
-        return channel.send(config.messageContent);
-      }).catch(err => console.error(`Failed to create channel ${i}:`, err))
-    );
-    
-    // Add a small delay to avoid rate limiting
-    if (i % 10 === 0) {
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      });
+      
+      // Send multiple spam messages to the channel
+      for (let j = 0; j < 5; j++) { // Reduced from 10 to 5 messages
+        await channel.send(config.messageContent);
+        // Increased delay between messages to avoid rate limiting
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      }
+      
+      console.log(`Created channel: ${channel.name}`);
+    } catch (error) {
+      console.error(`Failed to create channel:`, error);
+      // If we hit rate limits, wait longer before trying again
+      if (error.code === 50013) { // Rate limit error code
+        await new Promise(resolve => setTimeout(resolve, 10000));
+      }
     }
+    
+    // Increased delay between channel creations to avoid rate limiting
+    await new Promise(resolve => setTimeout(resolve, 2000));
   }
   
-  // Wait for all channel creation to complete
-  await Promise.all(promises);
+  console.log(`Batch of ${channelsToCreate} channels created with spam messages`);
 }
 
 // Login to Discord with your bot token

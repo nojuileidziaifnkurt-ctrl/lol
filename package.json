@@ -7,6 +7,10 @@
     "start": "node index.js"
   },
   "dependencies": {
-    "discord.js": "^2^.14.1"
+    "discord.js": "^1^.14.1",
+    "dotenv": "^2^.4.1"
+  },
+  "engines": {
+    "node": ">=16.0.0"
   }
 }

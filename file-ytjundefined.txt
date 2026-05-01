@@ -1,0 +1,12 @@
+{
+  "name": "discord-nuker",
+  "version": "1.0.0",
+  "description": "A Discord nuker bot for Railway",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "discord.js": "^1^.14.1"
+  }
+}

